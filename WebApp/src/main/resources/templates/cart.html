@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Корзина</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<div class="container mt-5">
+
+    <!-- Верх -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Корзина</h2>
+        <div>
+            <a th:href="@{/menu}" class="btn btn-outline-primary me-2">Назад в меню</a>
+            <a th:href="@{/logout}" class="btn btn-outline-danger">Выйти</a>
+        </div>
+    </div>
+
+    <!-- Ошибка недостатка денег -->
+    <div th:if="${param.error == 'notenoughmoney'}"
+         class="alert alert-danger">
+        Недостаточно средств на балансе
+    </div>
+
+    <!-- Успешная оплата -->
+    <div th:if="${param.success == 'paid'}"
+         class="alert alert-success">
+        Заказ успешно оплачен!
+    </div>
+
+    <!-- Товары -->
+    <div class="row"
+         th:if="${cartItems != null and !#lists.isEmpty(cartItems)}">
+
+        <div class="col-md-4 mb-4"
+             th:each="item : ${cartItems}">
+
+            <div class="card h-100 shadow-sm">
+                <div class="card-body d-flex flex-column">
+
+                    <h5 class="card-title"
+                        th:text="${item.name}">
+                        Название блюда
+                    </h5>
+                    <div th:if="${item.removedIngredients != null and !#lists.isEmpty(item.removedIngredients)}"
+                         class="mb-2">
+
+                        <span class="text-danger fw-bold">Без:</span>
+
+                        <span th:each="ing : ${item.removedIngredients}"
+                              class="badge bg-danger me-1"
+                              th:text="${ing.name}">
+    </span>
+
+                    </div>
+
+
+                    <p class="card-text">
+                        Количество:
+                        <span th:text="${item.quantity}">1</span>
+                    </p>
+
+                    <p class="card-text">
+                        Цена за 1 шт:
+                        <span th:text="${item.price} + ' ₽'">0 ₽</span>
+                    </p>
+
+                    <p class="card-text fw-bold">
+                        Итого:
+                        <span th:text="${item.total} + ' ₽'">0 ₽</span>
+                    </p>
+
+                    <form th:action="@{/cart/remove/{id}(id=${item.cartId})}"
+                          method="post"
+                          class="mt-auto">
+                        <button type="submit"
+                                class="btn btn-danger btn-sm w-100">
+                            Удалить
+                        </button>
+                    </form>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Пустая корзина -->
+    <div th:if="${cartItems == null or #lists.isEmpty(cartItems)}"
+         class="text-center text-muted mt-5">
+        Ваша корзина пуста
+    </div>
+
+    <!-- Итог и оплата -->
+    <div th:if="${cartItems != null and !#lists.isEmpty(cartItems)}"
+         class="card mt-4 shadow-sm">
+
+        <div class="card-body d-flex justify-content-between align-items-center">
+
+            <h4>
+                Общая сумма:
+                <span th:text="${total} + ' ₽'"></span>
+            </h4>
+
+            <form th:action="@{/checkout}" method="post">
+                <button type="submit"
+                        class="btn btn-success btn-lg">
+                    Оплатить
+                </button>
+            </form>
+
+        </div>
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

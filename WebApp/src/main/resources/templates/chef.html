@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Панель повара</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+          rel="stylesheet">
+
+    <style>
+        .low { background-color:#fff3cd; }
+        .critical { background-color:#f8d7da; }
+        .ok { background-color:#d1e7dd; }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from {opacity:0; transform: translateY(10px);}
+            to {opacity:1; transform: translateY(0);}
+        }
+    </style>
+</head>
+
+<body class="bg-light">
+
+<div class="container-fluid mt-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4 px-3">
+        <h2>Панель повара</h2>
+        <a th:href="@{/logout}" class="btn btn-outline-danger">Выйти</a>
+    </div>
+
+    <div class="row">
+
+        <!-- ================= ЗАКАЗЫ ================= -->
+        <div class="col-md-8">
+            <h4 class="mb-3">Заказы</h4>
+            <div id="ordersContainer"></div>
+        </div>
+
+        <!-- ================= СКЛАД ================= -->
+        <div class="col-md-4">
+            <h4 class="mb-3">Склад</h4>
+            <div class="card shadow-sm">
+                <div class="card-body p-2">
+                    <ul class="list-group" id="warehouseList"></ul>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ================= MODAL ПОПОЛНЕНИЯ ================= -->
+<div class="modal fade" id="addStockModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 id="stockTitle">Пополнение склада</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+
+                <input type="number"
+                       id="stockAmount"
+                       min="1"
+                       class="form-control"
+                       placeholder="Количество"
+                       required>
+
+                <button class="btn btn-success w-100 mt-3"
+                        onclick="submitStockAdd()">
+                    Пополнить
+                </button>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+
+    let currentIngredientId = null;
+
+    // ================= ЗАКАЗЫ =================
+
+    function acceptOrder(id){
+        fetch(`/api/chef/accept/${id}`, {method:"POST"})
+            .then(loadAll);
+    }
+
+    function readyOrder(id){
+        fetch(`/api/chef/ready/${id}`, {method:"POST"})
+            .then(loadAll);
+    }
+
+    function loadOrders(){
+        fetch('/api/chef/orders')
+            .then(r=>r.json())
+            .then(data=>{
+
+                const container=document.getElementById("ordersContainer");
+                container.innerHTML="";
+
+                if(data.length===0){
+                    container.innerHTML='<div class="text-muted">Нет активных заказов</div>';
+                    return;
+                }
+
+                data.forEach(order=>{
+
+                    let badgeClass="bg-secondary";
+
+                    if(order.status==="ACCEPTED") badgeClass="bg-warning text-dark";
+                    if(order.status==="READY") badgeClass="bg-success";
+
+                    let itemsHtml="";
+
+                    order.items.forEach(item=>{
+
+                        let removedHtml = "";
+
+                        if(item.removedIngredients && item.removedIngredients.length > 0){
+                            removedHtml = `
+            <div class="text-danger small">
+                Убрать:
+                ${item.removedIngredients
+                                .map(r => r.name)
+                                .join(", ")}
+            </div>
+        `;
+                        }
+
+                        let allergensHtml = "";
+
+                        if(order.user.allergens && order.user.allergens.length > 0){
+                            allergensHtml = `
+            <div class="text-warning small">
+                Аллергены клиента:
+                ${order.user.allergens
+                                .map(a => a.name)
+                                .join(", ")}
+            </div>
+        `;
+                        }
+
+                        itemsHtml+=`
+        <li class="mb-2">
+            <strong>${item.name}</strong> × ${item.quantity}
+            ${removedHtml}
+            ${allergensHtml}
+        </li>
+    `;
+                    });
+
+
+                    let buttons="";
+                    if(order.status==="NEW"){
+                        buttons+=`<button onclick="acceptOrder(${order.id})"
+class="btn btn-warning btn-sm">Принять</button>`;
+                    }
+                    if(order.status==="ACCEPTED"){
+                        buttons+=`<button onclick="readyOrder(${order.id})"
+class="btn btn-success btn-sm">Готово</button>`;
+                    }
+
+                    container.innerHTML+=`
+<div class="card mb-3 shadow-sm fade-in">
+<div class="card-body">
+
+<div class="d-flex justify-content-between">
+<div>
+<strong>Заказ №${order.id}</strong><br>
+<small>${order.user.username}</small>
+</div>
+<span class="badge ${badgeClass}">${order.status}</span>
+</div>
+
+<hr>
+<ul>${itemsHtml}</ul>
+
+<div class="fw-bold">Сумма: ${order.total} ₽</div>
+
+<div class="mt-3 d-flex gap-2">
+${buttons}
+</div>
+
+</div>
+</div>
+`;
+                });
+
+            });
+    }
+
+    // ================= СКЛАД =================
+
+    function loadWarehouse(){
+        fetch('/api/chef/warehouse')
+            .then(r=>r.json())
+            .then(data=>{
+
+                const list=document.getElementById("warehouseList");
+                list.innerHTML="";
+
+                data.forEach(i=>{
+
+                    let className="ok";
+
+                    if(i.quantity <=5) className="critical";
+                    else if(i.quantity <=10) className="low";
+
+                    list.innerHTML+=`
+<li class="list-group-item d-flex justify-content-between align-items-center ${className} fade-in">
+
+<div>
+<strong>${i.name}</strong><br>
+<small>Остаток: ${i.quantity}</small>
+</div>
+
+<button class="btn btn-sm btn-outline-success"
+        onclick="openStockModal(${i.id}, '${i.name}')">
+    + Пополнить
+</button>
+
+</li>`;
+                });
+
+            });
+    }
+
+    function openStockModal(id, name){
+        currentIngredientId = id;
+
+        document.getElementById("stockTitle")
+            .textContent = "Пополнение: " + name;
+
+        document.getElementById("stockAmount").value = "";
+
+        new bootstrap.Modal(
+            document.getElementById("addStockModal")
+        ).show();
+    }
+
+    function submitStockAdd(){
+
+        const amount =
+            document.getElementById("stockAmount").value;
+
+        if(!amount || amount <= 0) return;
+
+        fetch(`/api/chef/warehouse/add/${currentIngredientId}`,{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body: JSON.stringify({ amount: amount })
+        }).then(()=>{
+            loadWarehouse();
+
+            bootstrap.Modal
+                .getInstance(document.getElementById("addStockModal"))
+                .hide();
+        });
+    }
+
+    function loadAll(){
+        loadOrders();
+        loadWarehouse();
+    }
+
+    setInterval(loadAll,5000);
+    document.addEventListener("DOMContentLoaded", loadAll);
+
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

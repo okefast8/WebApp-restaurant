@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Админ: Меню</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<div class="container mt-5">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Меню (админ)</h2>
+        <a th:href="@{/menu}" class="btn btn-outline-secondary">К меню</a>
+    </div>
+
+    <!-- ================= ДОБАВЛЕНИЕ БЛЮДА ================= -->
+    <div class="card mb-4 shadow-sm">
+        <div class="card-body">
+            <h5 class="card-title">Добавить новое блюдо</h5>
+
+            <form th:action="@{/menu/admin/add}" method="post" class="row g-3">
+
+                <div class="col-md-2">
+                    <input type="text" class="form-control" name="name" placeholder="Название" required>
+                </div>
+
+                <div class="col-md-3">
+                    <input type="text" class="form-control" name="description" placeholder="Описание" required>
+                </div>
+
+                <div class="col-md-2">
+                    <input type="number" step="0.01" class="form-control" name="price" placeholder="Цена" required>
+                </div>
+
+                <div class="col-md-2">
+                    <select name="category" class="form-select" required>
+                        <option value="">Категория</option>
+                        <option th:each="cat : ${categories}"
+                                th:value="${cat}"
+                                th:text="${cat}">
+                        </option>
+                    </select>
+                </div>
+
+                <div class="col-md-2">
+                    <input type="text" class="form-control" name="imageUrl" placeholder="URL картинки">
+                </div>
+
+                <div class="col-md-1">
+                    <button type="submit" class="btn btn-success w-100">+</button>
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+    <!-- ================= ДОБАВЛЕНИЕ ИНГРЕДИЕНТА НА СКЛАД ================= -->
+    <div class="card mb-4 shadow-sm">
+        <div class="card-body">
+            <h5 class="card-title">Добавить ингредиент на склад</h5>
+
+            <form th:action="@{/menu/admin/ingredient/add}" method="post" class="row g-3">
+
+                <div class="col-md-4">
+                    <input type="text"
+                           class="form-control"
+                           name="name"
+                           placeholder="Название ингредиента"
+                           required>
+                </div>
+
+                <div class="col-md-3">
+                    <input type="number"
+                           class="form-control"
+                           name="quantity"
+                           placeholder="Количество"
+                           required>
+                </div>
+
+                <div class="col-md-3">
+                    <input type="text"
+                           class="form-control"
+                           name="unit"
+                           placeholder="Ед. измерения (г, мл, шт)"
+                           required>
+                </div>
+
+                <div class="col-md-2">
+                    <button type="submit"
+                            class="btn btn-success w-100">
+                        Добавить
+                    </button>
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+    <!-- ================= КАРТОЧКИ БЛЮД ================= -->
+    <div class="row">
+        <div class="col-md-4 mb-4" th:each="item : ${menuItems}">
+            <div class="card h-100 shadow-sm">
+
+                <img th:if="${item.imageUrl != null}"
+                     th:src="${item.imageUrl}"
+                     class="card-img-top"
+                     style="height:200px; object-fit:cover;">
+
+                <div class="card-body d-flex flex-column">
+
+                    <h5 class="card-title" th:text="${item.name}"></h5>
+
+                    <p class="card-text flex-grow-1"
+                       th:text="${item.description}"></p>
+
+                    <div class="mb-2 text-muted small"
+                         th:text="${item.category}">
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mt-auto">
+
+                        <span class="fw-bold"
+                              th:text="${item.price} + ' ₽'"></span>
+
+                        <div class="d-flex flex-wrap gap-2">
+
+                            <button class="btn btn-secondary btn-sm"
+                                    th:attr="data-id=${item.id}"
+                                    onclick="openIngredients(this)">
+                                Состав
+                            </button>
+
+                            <button class="btn btn-primary btn-sm"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#editModal"
+                                    th:attr="
+                                        data-id=${item.id},
+                                        data-name=${item.name},
+                                        data-description=${item.description},
+                                        data-price=${item.price},
+                                        data-category=${item.category},
+                                        data-image=${item.imageUrl}">
+                                Редактировать
+                            </button>
+
+                            <form th:action="@{/menu/admin/delete/{id}(id=${item.id})}"
+                                  method="post">
+                                <button type="submit"
+                                        class="btn btn-danger btn-sm">
+                                    Удалить
+                                </button>
+                            </form>
+
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ================= МОДАЛКА РЕДАКТИРОВАНИЯ ================= -->
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+
+            <form th:action="@{/menu/admin/update}" method="post">
+
+                <div class="modal-header">
+                    <h5 class="modal-title">Редактировать блюдо</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <input type="hidden" name="id" id="edit-id">
+
+                    <div class="mb-3">
+                        <label class="form-label">Название</label>
+                        <input type="text" class="form-control" name="name" id="edit-name" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Описание</label>
+                        <textarea class="form-control" name="description" id="edit-description" required></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Цена</label>
+                        <input type="number" step="0.01" class="form-control" name="price" id="edit-price" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Категория</label>
+                        <select name="category" class="form-select" id="edit-category" required>
+                            <option th:each="cat : ${categories}"
+                                    th:value="${cat}"
+                                    th:text="${cat}">
+                            </option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">URL картинки</label>
+                        <input type="text" class="form-control" name="imageUrl" id="edit-image">
+                    </div>
+
+                </div>
+
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Сохранить</button>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+</div>
+
+<!-- ================= МОДАЛКА СОСТАВА ================= -->
+<div class="modal fade" id="ingredientsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 class="modal-title">Состав блюда</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+
+                <ul id="ingredientsList" class="list-group mb-3"></ul>
+
+                <div class="row g-2">
+
+                    <div class="col-6">
+                        <select id="ingredientSelect" class="form-select">
+                            <option value="">Выберите ингредиент</option>
+                            <option th:each="ing : ${ingredients}"
+                                    th:value="${ing.id}"
+                                    th:text="${ing.name + ' (' + ing.unit + ')'}">
+                            </option>
+                        </select>
+                    </div>
+
+                    <div class="col-4">
+                        <input type="number"
+                               id="ingredientQuantity"
+                               class="form-control"
+                               placeholder="Количество">
+                    </div>
+
+                    <div class="col-2">
+                        <button class="btn btn-success w-100"
+                                onclick="addIngredient()">
+                            +
+                        </button>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+
+    let currentMenuItemId = null;
+
+    const editModal = document.getElementById('editModal');
+
+    editModal.addEventListener('show.bs.modal', function (event) {
+        const button = event.relatedTarget;
+
+        document.getElementById('edit-id').value = button.getAttribute('data-id');
+        document.getElementById('edit-name').value = button.getAttribute('data-name');
+        document.getElementById('edit-description').value = button.getAttribute('data-description');
+        document.getElementById('edit-price').value = button.getAttribute('data-price');
+        document.getElementById('edit-category').value = button.getAttribute('data-category');
+        document.getElementById('edit-image').value = button.getAttribute('data-image');
+    });
+
+    function openIngredients(button) {
+
+        currentMenuItemId = button.getAttribute("data-id");
+
+        fetch(`/menu/admin/ingredients/${currentMenuItemId}`)
+            .then(res => res.json())
+            .then(data => {
+
+                const list = document.getElementById("ingredientsList");
+                list.innerHTML = "";
+
+                data.forEach(link => {
+
+                    const li = document.createElement("li");
+                    li.className = "list-group-item d-flex justify-content-between align-items-center";
+
+                    li.innerHTML = `
+                    ${link.ingredient.name} — ${link.quantity} ${link.ingredient.unit}
+                    <button class="btn btn-sm btn-danger"
+                        onclick="deleteIngredient(${link.id})">✖</button>
+                `;
+
+                    list.appendChild(li);
+                });
+
+                new bootstrap.Modal(document.getElementById('ingredientsModal')).show();
+            });
+    }
+
+    function addIngredient() {
+
+        const ingredientId = document.getElementById("ingredientSelect").value;
+        const quantity = document.getElementById("ingredientQuantity").value;
+
+        if (!ingredientId || !quantity) return;
+
+        fetch(`/menu/admin/ingredients/add?menuItemId=${currentMenuItemId}&ingredientId=${ingredientId}&quantity=${quantity}`, {
+            method: "POST"
+        }).then(() => {
+
+            document.getElementById("ingredientSelect").value = "";
+            document.getElementById("ingredientQuantity").value = "";
+
+            openIngredients({ getAttribute: () => currentMenuItemId });
+        });
+    }
+
+    function deleteIngredient(id) {
+
+        fetch(`/menu/admin/ingredients/delete/${id}`, {
+            method: "DELETE"
+        }).then(() => {
+            openIngredients({ getAttribute: () => currentMenuItemId });
+        });
+    }
+
+</script>
+
+</body>
+</html>

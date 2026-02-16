@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Меню ресторана</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .star {
+            cursor: pointer;
+            font-size: 1.3rem;
+            color: #ccc;
+        }
+
+        .star.selected {
+            color: gold;
+        }
+
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+        }
+    </style>
+</head>
+<body class="bg-light">
+
+<div class="container mt-4">
+
+    <!-- ===== HEADER ===== -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Меню ресторана</h2>
+
+        <div class="d-flex align-items-center gap-2">
+            <span class="fw-bold">
+                Баланс:
+                <span data-balance th:text="${currentUser.balance}"></span> ₽
+            </span>
+
+            <button class="btn btn-outline-secondary"
+                    data-bs-toggle="modal"
+                    data-bs-target="#profileModal">
+                Профиль
+            </button>
+
+            <a th:href="@{/cart}" class="btn btn-outline-primary">Корзина</a>
+            <a th:href="@{/logout}" class="btn btn-outline-danger">Выйти</a>
+        </div>
+    </div>
+
+    <!-- ===== КАТЕГОРИИ ===== -->
+    <div class="mb-4 text-center">
+        <div class="btn-group" role="group">
+
+            <button class="btn btn-dark active"
+                    onclick="filterCategory('ALL', this)">
+                Все
+            </button>
+
+            <button class="btn btn-outline-dark"
+                    onclick="filterCategory('DRINKS', this)">
+                ☕ Напитки
+            </button>
+
+            <button class="btn btn-outline-dark"
+                    onclick="filterCategory('SOUPS', this)">
+                🍲 Супы
+            </button>
+
+            <button class="btn btn-outline-dark"
+                    onclick="filterCategory('BAKERY', this)">
+                🥐 Выпечка
+            </button>
+
+            <button class="btn btn-outline-dark"
+                    onclick="filterCategory('HOT', this)">
+                🍖 Горячее
+            </button>
+
+            <button class="btn btn-outline-dark"
+                    onclick="filterCategory('SALADS', this)">
+                🥗 Салаты
+            </button>
+
+        </div>
+    </div>
+
+    <!-- ===== MENU ITEMS ===== -->
+    <div class="row g-3" th:if="${menuItems != null}">
+        <div class="col-md-4 menu-item"
+             th:each="item : ${menuItems}"
+             th:attr="data-category=${item.category}">
+
+            <div class="card h-100 shadow-sm">
+
+                <img th:if="${item.imageUrl != null}"
+                     th:src="${item.imageUrl}"
+                     class="card-img-top"
+                     style="height:200px; object-fit:cover;">
+
+                <div class="card-body d-flex flex-column">
+
+                    <h5 th:text="${item.name}"></h5>
+                    <p class="flex-grow-1" th:text="${item.description}"></p>
+
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+
+                        <span class="fw-bold"
+                              th:text="${item.price} + ' ₽'"></span>
+
+                        <div class="d-flex gap-1">
+
+                            <button class="btn btn-outline-secondary btn-sm"
+                                    th:attr="onclick=|openCompositionModal(${item.id}, '${item.name}')|">
+                                Состав
+                            </button>
+
+                            <button class="btn btn-outline-info btn-sm"
+                                    th:attr="onclick=|openCommentsModal(${item.id}, '${item.name}')|">
+                                Комментарии
+                            </button>
+
+                            <button class="btn btn-primary btn-sm"
+                                    th:attr="onclick=|openCustomizeModal(${item.id}, '${item.name}')|">
+                                Добавить
+                            </button>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ================= PROFILE MODAL ================= -->
+<div class="modal fade" id="profileModal">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5>
+                    Профиль:
+                    <span th:text="${currentUser.username}"></span>
+                </h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+
+                <h6>
+                    Баланс:
+                    <span class="fw-bold"
+                          data-balance
+                          th:text="${currentUser.balance}"></span> ₽
+                </h6>
+
+                <form th:action="@{/balance/topup}"
+                      method="post"
+                      class="d-flex gap-2 mt-3 mb-4">
+                    <input type="number"
+                           name="amount"
+                           step="0.01"
+                           min="1"
+                           class="form-control"
+                           placeholder="Сумма"
+                           required>
+                    <button class="btn btn-success">Пополнить</button>
+                </form>
+
+                <hr>
+
+                <h5>Мои заказы</h5>
+                <div id="ordersContainer"
+                     style="max-height:300px; overflow-y:auto;"></div>
+
+                <hr>
+
+                <h5>История операций</h5>
+                <div class="table-responsive"
+                     style="max-height:300px; overflow-y:auto;">
+                    <table class="table table-sm w-100">
+                        <thead>
+                        <tr>
+                            <th>Тип</th>
+                            <th>Сумма</th>
+                            <th>Дата</th>
+                        </tr>
+                        </thead>
+                        <tbody id="transactionsBody"></tbody>
+                    </table>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== COMPOSITION MODAL ===== -->
+<div class="modal fade" id="compositionModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 id="compositionTitle"></h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <ul id="ingredientsList"></ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== COMMENTS MODAL ===== -->
+<div class="modal fade" id="commentsModal">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 id="commentsTitle"></h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+                ⭐ Средний рейтинг:
+                <strong id="averageRating">0</strong>
+
+                <div id="commentsContainer"
+                     style="max-height:300px; overflow-y:auto;"
+                     class="my-3"></div>
+
+                <hr>
+
+                <div class="mb-2">
+                    <span class="star" onclick="selectRating(1)">★</span>
+                    <span class="star" onclick="selectRating(2)">★</span>
+                    <span class="star" onclick="selectRating(3)">★</span>
+                    <span class="star" onclick="selectRating(4)">★</span>
+                    <span class="star" onclick="selectRating(5)">★</span>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <input id="newCommentText"
+                           maxlength="200"
+                           class="form-control"
+                           placeholder="Комментарий (до 200 символов)">
+                    <button class="btn btn-primary"
+                            onclick="submitComment()">Отправить</button>
+                </div>
+
+                <small>Осталось:
+                    <span id="charCount">200</span>
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== TOAST ===== -->
+<div class="toast-container">
+    <div id="commentToast"
+         class="toast align-items-center text-bg-success border-0">
+        <div class="d-flex">
+            <div class="toast-body">Комментарий добавлен</div>
+            <button class="btn-close btn-close-white me-2 m-auto"
+                    data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script th:inline="javascript">
+
+    let currentMenuItemId = null;
+    let currentRating = 0;
+    let interval = null;
+    let currentUsername = /*[[${currentUser.username}]]*/ "";
+
+    /* ===== ФИЛЬТР КАТЕГОРИЙ ===== */
+    function filterCategory(category, button) {
+
+        document.querySelectorAll('.btn-group button')
+            .forEach(btn => {
+                btn.classList.remove('active','btn-dark');
+                btn.classList.add('btn-outline-dark');
+            });
+
+        button.classList.add('active','btn-dark');
+        button.classList.remove('btn-outline-dark');
+
+        document.querySelectorAll('.menu-item')
+            .forEach(item => {
+                const itemCategory =
+                    item.getAttribute('data-category');
+
+                item.style.display =
+                    (category === 'ALL' ||
+                        itemCategory === category)
+                        ? "block" : "none";
+            });
+    }
+
+    /* ===== СОСТАВ ===== */
+    function openCompositionModal(id, name) {
+
+        document.getElementById("compositionTitle").textContent = name;
+
+        const list = document.getElementById("ingredientsList");
+        list.innerHTML = "<li>Загрузка...</li>";
+
+        fetch("/api/menu/" + id + "/ingredients")
+            .then(res => res.json())
+            .then(data => {
+
+                list.innerHTML = "";
+
+                if (!data || data.length === 0) {
+                    list.innerHTML = "<li>Состав не указан</li>";
+                    return;
+                }
+
+                data.forEach(link => {
+
+                    const li = document.createElement("li");
+
+                    li.textContent =
+                        link.ingredient.name +
+                        " — " +
+                        link.quantity +
+                        " " +
+                        link.ingredient.unit;
+
+                    list.appendChild(li);
+                });
+
+            })
+            .catch(() => {
+                list.innerHTML = "<li>Ошибка загрузки состава</li>";
+            });
+
+        new bootstrap.Modal(
+            document.getElementById("compositionModal")
+        ).show();
+    }
+
+
+    /* ===== КОММЕНТАРИИ ===== */
+    function openCommentsModal(id, name) {
+
+        currentMenuItemId = id;
+
+        document.getElementById("commentsTitle")
+            .textContent = "Комментарии к: " + name;
+
+        loadComments();
+
+        interval = setInterval(loadComments, 5000);
+
+        new bootstrap.Modal(
+            document.getElementById("commentsModal")
+        ).show();
+    }
+
+    document.getElementById("commentsModal")
+        .addEventListener("hidden.bs.modal", () => {
+            clearInterval(interval);
+        });
+
+    function loadComments() {
+
+        fetch("/api/comments/" + currentMenuItemId)
+            .then(res => res.json())
+            .then(data => {
+
+                const container =
+                    document.getElementById("commentsContainer");
+
+                container.innerHTML = "";
+
+                let total = 0;
+
+                if (data.length === 0) {
+                    container.innerHTML =
+                        "<div class='text-muted'>Комментариев пока нет</div>";
+                }
+
+                data.forEach(c => {
+
+                    total += c.rating || 0;
+
+                    const card = document.createElement("div");
+                    card.className = "card mb-2 fade-in";
+
+                    card.innerHTML = `
+                        <div class="card-body p-2">
+                            <div class="d-flex justify-content-between">
+                                <strong>${c.username}</strong>
+                                ${c.username === currentUsername
+                        ? `<button class="btn btn-sm btn-danger"
+                                       onclick="deleteComment(${c.id})">×</button>`
+                        : ""}
+                            </div>
+                            <div>${"★".repeat(c.rating || 0)}</div>
+                            <div>${c.text}</div>
+                            <div class="text-muted small">
+                                ${c.createdAt.replace("T"," ").substring(0,16)}
+                            </div>
+                        </div>
+                    `;
+
+                    container.appendChild(card);
+                });
+
+                document.getElementById("averageRating")
+                    .textContent =
+                    data.length
+                        ? (total / data.length).toFixed(1)
+                        : 0;
+            });
+    }
+
+    function submitComment() {
+
+        const text =
+            document.getElementById("newCommentText").value;
+
+        if (!text.trim()) return;
+
+        fetch("/api/comments/" + currentMenuItemId, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                text: text,
+                rating: currentRating
+            })
+        }).then(() => {
+
+            document.getElementById("newCommentText").value = "";
+            currentRating = 0;
+            updateStars();
+            loadComments();
+
+            const toast = new bootstrap.Toast(
+                document.getElementById("commentToast")
+            );
+            toast.show();
+        });
+    }
+
+    function deleteComment(id) {
+        fetch("/api/comments/delete/" + id, {
+            method: "DELETE"
+        }).then(loadComments);
+    }
+
+    /* ===== РЕЙТИНГ ===== */
+    function selectRating(r) {
+        currentRating = r;
+        updateStars();
+    }
+
+    function updateStars() {
+        document.querySelectorAll(".star")
+            .forEach((s, i) =>
+                s.classList.toggle("selected", i < currentRating)
+            );
+    }
+
+    /* ===== ЛИМИТ ===== */
+    document.getElementById("newCommentText")
+        .addEventListener("input", function() {
+            document.getElementById("charCount")
+                .textContent = 200 - this.value.length;
+        });
+
+    /* ===== ПРОФИЛЬ ===== */
+    function loadProfileData() {
+
+        fetch('/api/profile')
+            .then(res => res.json())
+            .then(data => {
+
+                document.querySelectorAll('[data-balance]')
+                    .forEach(el => el.textContent = data.balance);
+
+                const orders =
+                    document.getElementById("ordersContainer");
+
+                orders.innerHTML = "";
+
+                data.orders.forEach(order => {
+                    orders.innerHTML += `
+                        <div class="card mb-2">
+                            <div class="card-body p-2">
+                                <div class="d-flex justify-content-between">
+                                    <strong>№${order.id}</strong>
+                                    <span class="badge bg-secondary">
+                                        ${order.status}
+                                    </span>
+                                </div>
+                                <div class="small mt-1">
+                                    ${order.total} ₽
+                                </div>
+                                <div class="text-muted small">
+                                    ${order.createdAt.replace("T"," ").substring(0,16)}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                const txBody =
+                    document.getElementById("transactionsBody");
+
+                txBody.innerHTML = "";
+
+                data.transactions.forEach(tx => {
+                    txBody.innerHTML += `
+                        <tr>
+                            <td>${tx.type}</td>
+                            <td>${tx.amount}</td>
+                            <td>${tx.createdAt.replace("T"," ").substring(0,16)}</td>
+                        </tr>
+                    `;
+                });
+            });
+    }
+
+    document.getElementById('profileModal')
+        .addEventListener('shown.bs.modal', loadProfileData);
+
+    let currentCustomizeId = null;
+
+    function openCustomizeModal(id, name){
+
+        currentCustomizeId = id;
+
+        document.getElementById("customizeTitle")
+            .textContent = "Настроить: " + name;
+
+        fetch("/api/menu/" + id + "/ingredients")
+            .then(res => res.json())
+            .then(data => {
+
+                let html = "";
+
+                data.forEach(link => {
+
+                    html += `
+                    <div class="form-check">
+                        <input class="form-check-input"
+                               type="checkbox"
+                               value="${link.ingredient.id}"
+                               id="ing${link.ingredient.id}">
+                        <label class="form-check-label">
+                            Убрать ${link.ingredient.name}
+                        </label>
+                    </div>
+                `;
+                });
+
+                document.getElementById("customizeIngredients").innerHTML = html;
+            });
+
+        document.getElementById("confirmAddBtn")
+            .onclick = submitCustomizedAdd;
+
+        new bootstrap.Modal(
+            document.getElementById("customizeModal")
+        ).show();
+    }
+
+    function submitCustomizedAdd(){
+
+        const removed = [];
+
+        document
+            .querySelectorAll("#customizeIngredients input:checked")
+            .forEach(cb => removed.push(cb.value));
+
+        fetch("/cart/add-custom", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                menuItemId: currentCustomizeId,
+                removedIngredientIds: removed
+            })
+        }).then(() => {
+            location.reload();
+        });
+    }
+
+</script>
+
+<!-- ===== CUSTOMIZE MODAL ===== -->
+<div class="modal fade" id="customizeModal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5 id="customizeTitle"></h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+
+                <div id="customizeIngredients"></div>
+
+                <button class="btn btn-success w-100 mt-3"
+                        id="confirmAddBtn">
+                    Добавить в корзину
+                </button>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+
+</body>
+</html>

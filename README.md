@@ -107,3 +107,4 @@
 	mvn spring-boot:run
 	http://localhost:8080  (занят системой)
 	http://localhost:9090  (для открытыия в браузере)
+	https://play.boomstream.com/wCMLlOie (ссылка на видеоролик)

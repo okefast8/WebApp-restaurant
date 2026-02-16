@@ -96,4 +96,5 @@
 
 Запуск проекта:
 	mvn spring-boot:run
-	http://localhost:8080
+	http://localhost:8080  (занят системой)
+	http://localhost:9090  (для открытыия в браузере)
